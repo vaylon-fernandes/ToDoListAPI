@@ -1,12 +1,8 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
-using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using ToDoListAPI.Models;
 using TodoApi.Models;
+using ToDoListAPI.Helpers;
+using ToDoListAPI.Models;
 
 namespace ToDoListAPI.Controllers
 {
@@ -23,9 +19,16 @@ namespace ToDoListAPI.Controllers
 
         // GET: api/TodoItems
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<TodoItem>>> GetTodoItems()
+        public async Task<ActionResult<ApiResponse<List<TodoItem>>>> GetTodoItems()
         {
-            return await _context.TodoItems.ToListAsync();
+            var todoItem = await _context.TodoItems.ToListAsync();
+
+            return Ok(new ApiResponse<List<TodoItem>>
+            {
+                Success = true,
+                Message = "Item retrieved successfully",
+                Data = todoItem
+            });
         }
 
         // GET: api/TodoItems/5
@@ -36,10 +39,20 @@ namespace ToDoListAPI.Controllers
 
             if (todoItem == null)
             {
-                return NotFound();
+                return NotFound(value: new ApiResponse<TodoItem>
+                {
+                    Success = false,
+                    Message = "Item not found",
+                    Data = null
+                });
             }
 
-            return todoItem;
+            return Ok(new ApiResponse<TodoItem>
+            {
+                Success = true,
+                Message = "Item retrieved successfully",
+                Data = todoItem
+            });
         }
 
         // PUT: api/TodoItems/5
@@ -49,7 +62,12 @@ namespace ToDoListAPI.Controllers
         {
             if (id != todoItem.Id)
             {
-                return BadRequest();
+                return BadRequest(new ApiResponse<TodoItem>
+                {
+                    Data = null,
+                    Message = "ID Mismatch",
+                    Success = false
+                });
             }
 
             _context.Entry(todoItem).State = EntityState.Modified;
@@ -62,7 +80,12 @@ namespace ToDoListAPI.Controllers
             {
                 if (!TodoItemExists(id))
                 {
-                    return NotFound();
+                    return NotFound(new ApiResponse<TodoItem>
+                    {
+                        Success = false,
+                        Message = "Item not found",
+                        Data = null
+                    });
                 }
                 else
                 {
@@ -70,7 +93,11 @@ namespace ToDoListAPI.Controllers
                 }
             }
 
-            return NoContent();
+            return Ok(new ApiResponse<TodoItem>
+            {
+                Success = true,
+                Message = "Item updated successfully",
+            });
         }
 
         // POST: api/TodoItems
@@ -78,11 +105,36 @@ namespace ToDoListAPI.Controllers
         [HttpPost]
         public async Task<ActionResult<TodoItem>> PostTodoItem(TodoItem todoItem)
         {
-            _context.TodoItems.Add(todoItem);
-            await _context.SaveChangesAsync();
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(new ApiResponse<TodoItem>
+                {
+                    Success = false,
+                    Message = "Invalid model",
+                    Data = null
+                });
+            }
+            try
+            {
 
-            // return CreatedAtAction("GetTodoItem", new { id = todoItem.Id }, todoItem);
-            return CreatedAtAction(nameof(GetTodoItem), new { id = todoItem.Id }, todoItem);
+                _context.TodoItems.Add(todoItem);
+                await _context.SaveChangesAsync();
+
+                // return CreatedAtAction("GetTodoItem", new { id = todoItem.Id }, todoItem);
+                return Ok(new ApiResponse<TodoItem>
+                {
+                    Success = true,
+                    Message = "Task created successfully",
+                    Data = todoItem
+                });
+            }
+            catch (Exception ex) {
+                return StatusCode(500, new ApiResponse<TodoItem>
+                {
+                    Success = false,
+                    Message = $"An error occurred: {ex.Message}",
+                });
+            }
         }
 
         // DELETE: api/TodoItems/5
@@ -92,13 +144,22 @@ namespace ToDoListAPI.Controllers
             var todoItem = await _context.TodoItems.FindAsync(id);
             if (todoItem == null)
             {
-                return NotFound();
+                return NotFound(new ApiResponse<TodoItem>
+                {
+                    Success = false,
+                    Message = "Task not found",
+                    Data = null
+                }); 
             }
 
             _context.TodoItems.Remove(todoItem);
             await _context.SaveChangesAsync();
 
-            return NoContent();
+            return Ok(new ApiResponse<TodoItem>
+            {
+                Success = true,
+                Message = "Task deleted successfully",
+            });
         }
 
         private bool TodoItemExists(long id)
